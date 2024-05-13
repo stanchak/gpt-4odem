@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPT-4odem</title>
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background-color: black;
+    }
+    button {
+        padding: 20px 40px;
+        font-size: 32px;
+        background-color: #f8f9fa; /* Off-white color */
+        color: black;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    button:hover {
+        background-color: #e0e0e0;
+    }
+</style>
+</head>
+<body>
+
+<button onclick="playModemSound()">GPT-4odem</button>
+
+<script>
+function createNoise(type, audioCtx) {
+    const bufferSize = 2 * audioCtx.sampleRate;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = buffer.getChannelData(0);
+
+    if (type === 'white') {
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+    } else if (type === 'pink') {
+        let b0, b1, b2, b3, b4, b5, b6;
+        b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            b0 = 0.99886 * b0 + white * 0.0555179;
+            b1 = 0.99332 * b1 + white * 0.0750759;
+            b2 = 0.96900 * b2 + white * 0.1538520;
+            b3 = 0.86650 * b3 + white * 0.3104856;
+            b4 = 0.55000 * b4 + white * 0.5329522;
+            b5 = -0.7616 * b5 - white * 0.0168980;
+            output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+            output[i] *= 0.11; // (roughly) compensate for gain
+            b6 = white * 0.115926;
+        }
+    }
+
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    noise.loop = true;
+
+    return noise;
+}
+
+function playModemSound() {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const createOscillator = (frequency, type) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = type;
+        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        return osc;
+    };
+
+    const createGainNode = (initialGain) => {
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.setValueAtTime(initialGain, audioCtx.currentTime);
+        return gainNode;
+    };
+
+    const whiteNoise = createNoise('white', audioCtx);
+    const pinkNoise = createNoise('pink', audioCtx);
+
+    // Create oscillators mimicking modem tones
+    const osc1 = createOscillator(800, 'square');
+    const osc2 = createOscillator(1000, 'sawtooth');
+    const osc3 = createOscillator(1500, 'triangle');
+    const osc4 = createOscillator(2000, 'square');
+
+    const noiseGain = createGainNode(0.05); // Noise should be subtle
+    const pinkNoiseGain = createGainNode(0.3);
+    const osc1Gain = createGainNode(0.2);
+    const osc2Gain = createGainNode(0.2);
+    const osc3Gain = createGainNode(0.2);
+    const osc4Gain = createGainNode(0.2);
+
+    whiteNoise.connect(noiseGain).connect(audioCtx.destination);
+    pinkNoise.connect(pinkNoiseGain).connect(audioCtx.destination);
+    osc1.connect(osc1Gain).connect(audioCtx.destination);
+    osc2.connect(osc2Gain).connect(audioCtx.destination);
+    osc3.connect(osc3Gain).connect(audioCtx.destination);
+    osc4.connect(osc4Gain).connect(audioCtx.destination);
+
+    whiteNoise.start();
+    osc1.start();
+    osc2.start(audioCtx.currentTime + 1);
+    osc3.start(audioCtx.currentTime + 2);
+    osc4.start(audioCtx.currentTime + 3);
+    pinkNoise.start(audioCtx.currentTime + 3);
+
+    whiteNoise.stop(audioCtx.currentTime + 4);
+    osc1.stop(audioCtx.currentTime + 4);
+    osc2.stop(audioCtx.currentTime + 4);
+    osc3.stop(audioCtx.currentTime + 4);
+    osc4.stop(audioCtx.currentTime + 4);
+    pinkNoise.stop(audioCtx.currentTime + 5);
+}
+</script>
+
+</body>
+</html>
