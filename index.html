@@ -4,25 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GPT-4odem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
+    .press-start-2p-regular {
+        font-family: "Press Start 2P", system-ui;
+        font-weight: 400;
+        font-style: normal;
+    }
     body {
         display: flex;
         justify-content: center;
         align-items: center;
         height: 100vh;
         margin: 0;
-        font-family: Arial, sans-serif;
         background-color: black;
     }
     button {
         padding: 20px 40px;
         font-size: 32px;
-        background-color: #f8f9fa; /* Off-white color */
+        background-color: #f8f9fab0; /* Off-white color */
         color: black;
         border: none;
         border-radius: 10px;
         cursor: pointer;
         transition: background-color 0.3s ease;
+        font-family: 'PressStart2P'; /* Retro style font */
     }
     button:hover {
         background-color: #e0e0e0;
@@ -31,7 +39,7 @@
 </head>
 <body>
 
-<button onclick="playModemSound()">GPT-4odem</button>
+<button class="press-start-2p-regular" onclick="playModemSound()">GPT-4odem</button>
 
 <script>
 function createNoise(type, audioCtx) {
@@ -39,11 +47,7 @@ function createNoise(type, audioCtx) {
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const output = buffer.getChannelData(0);
 
-    if (type === 'white') {
-        for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1;
-        }
-    } else if (type === 'pink') {
+    if (type === 'pink') {
         let b0, b1, b2, b3, b4, b5, b6;
         b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
         for (let i = 0; i < bufferSize; i++) {
@@ -83,42 +87,106 @@ function playModemSound() {
         return gainNode;
     };
 
-    const whiteNoise = createNoise('white', audioCtx);
+    const playDTMF = (audioCtx, frequency1, frequency2, startTime, duration) => {
+        const osc1 = createOscillator(frequency1, 'sine');
+        const osc2 = createOscillator(frequency2, 'sine');
+        const gainNode = createGainNode(0.5);
+
+        osc1.connect(gainNode).connect(audioCtx.destination);
+        osc2.connect(gainNode).connect(audioCtx.destination);
+
+        osc1.start(startTime);
+        osc2.start(startTime);
+        osc1.stop(startTime + duration);
+        osc2.stop(startTime + duration);
+    };
+
+    // Dial tone
+    const dialToneOsc1 = createOscillator(350, 'sine');
+    const dialToneOsc2 = createOscillator(440, 'sine');
+    const dialToneGain = createGainNode(0.5);
+
+    dialToneOsc1.connect(dialToneGain).connect(audioCtx.destination);
+    dialToneOsc2.connect(dialToneGain).connect(audioCtx.destination);
+
+    dialToneOsc1.start();
+    dialToneOsc2.start();
+
+    // DTMF frequencies for each digit
+    const dtmfFrequencies = {
+        '1': [697, 1209],
+        '2': [697, 1336],
+        '3': [697, 1477],
+        '4': [770, 1209],
+        '5': [770, 1336],
+        '6': [770, 1477],
+        '7': [852, 1209],
+        '8': [852, 1336],
+        '9': [852, 1477],
+        '0': [941, 1336]
+    };
+
+    const phoneNumber = '2128675309';
+    const dtmfDuration = 0.15; // Duration of each DTMF tone (50% faster)
+    const dtmfPause = 0.15; // Pause between each DTMF tone (50% faster)
+
+    let currentTime = audioCtx.currentTime + 2; // Start dialing after 2 seconds
+
+    // Stop dial tone before dialing
+    dialToneOsc1.stop(currentTime);
+    dialToneOsc2.stop(currentTime);
+
+    // Play each DTMF tone
+    for (const digit of phoneNumber) {
+        const [freq1, freq2] = dtmfFrequencies[digit];
+        playDTMF(audioCtx, freq1, freq2, currentTime, dtmfDuration);
+        currentTime += dtmfDuration + dtmfPause;
+    }
+
+    // Handshake beeping sounds
+    const handshakeFrequency1 = 1200; // Higher pitch for initial beeps
+    const handshakeFrequency2 = 1800; // Even higher pitch for the final beep
+    const initialBeepDuration = 0.2; // Longer initial beeps
+    const initialBeepPause = 0.1;
+    const finalBeepDuration = 0.7; // Longer final beep
+
+    // Initial beeps
+    for (let i = 0; i < 4; i++) {
+        const osc = createOscillator(handshakeFrequency1, 'sine');
+        const gainNode = createGainNode(0.5);
+        osc.connect(gainNode).connect(audioCtx.destination);
+        osc.start(currentTime);
+        osc.stop(currentTime + initialBeepDuration);
+        currentTime += initialBeepDuration + initialBeepPause;
+    }
+
+    // Repeat the final beep four times
+    for (let i = 0; i < 4; i++) {
+        const finalBeepOsc = createOscillator(handshakeFrequency2, 'sine');
+        const finalBeepGain = createGainNode(0.5);
+        finalBeepOsc.connect(finalBeepGain).connect(audioCtx.destination);
+        finalBeepOsc.start(currentTime);
+        finalBeepOsc.stop(currentTime + finalBeepDuration);
+        currentTime += finalBeepDuration + initialBeepPause;
+    }
+
+    // One higher pitched longer beep before the pink noise
+    const higherPitchedBeepFrequency = 2000; // Higher pitch for the final beep
+    const higherPitchedBeepDuration = 1.0; // Longer duration for the final beep
+    const higherPitchedBeepOsc = createOscillator(higherPitchedBeepFrequency, 'sine');
+    const higherPitchedBeepGain = createGainNode(0.5);
+    higherPitchedBeepOsc.connect(higherPitchedBeepGain).connect(audioCtx.destination);
+    higherPitchedBeepOsc.start(currentTime);
+    higherPitchedBeepOsc.stop(currentTime + higherPitchedBeepDuration);
+    currentTime += higherPitchedBeepDuration;
+
+    // Loud pink noise for communication
     const pinkNoise = createNoise('pink', audioCtx);
+    const pinkNoiseGain = createGainNode(2.0); // Loud pink noise
 
-    // Create oscillators mimicking modem tones
-    const osc1 = createOscillator(800, 'square');
-    const osc2 = createOscillator(1000, 'sawtooth');
-    const osc3 = createOscillator(1500, 'triangle');
-    const osc4 = createOscillator(2000, 'square');
-
-    const noiseGain = createGainNode(0.05); // Noise should be subtle
-    const pinkNoiseGain = createGainNode(0.3);
-    const osc1Gain = createGainNode(0.2);
-    const osc2Gain = createGainNode(0.2);
-    const osc3Gain = createGainNode(0.2);
-    const osc4Gain = createGainNode(0.2);
-
-    whiteNoise.connect(noiseGain).connect(audioCtx.destination);
     pinkNoise.connect(pinkNoiseGain).connect(audioCtx.destination);
-    osc1.connect(osc1Gain).connect(audioCtx.destination);
-    osc2.connect(osc2Gain).connect(audioCtx.destination);
-    osc3.connect(osc3Gain).connect(audioCtx.destination);
-    osc4.connect(osc4Gain).connect(audioCtx.destination);
-
-    whiteNoise.start();
-    osc1.start();
-    osc2.start(audioCtx.currentTime + 1);
-    osc3.start(audioCtx.currentTime + 2);
-    osc4.start(audioCtx.currentTime + 3);
-    pinkNoise.start(audioCtx.currentTime + 3);
-
-    whiteNoise.stop(audioCtx.currentTime + 4);
-    osc1.stop(audioCtx.currentTime + 4);
-    osc2.stop(audioCtx.currentTime + 4);
-    osc3.stop(audioCtx.currentTime + 4);
-    osc4.stop(audioCtx.currentTime + 4);
-    pinkNoise.stop(audioCtx.currentTime + 5);
+    pinkNoise.start(currentTime);
+    pinkNoise.stop(currentTime + 5); // Play for 5 seconds
 }
 </script>
 
